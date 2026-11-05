@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
     private var lastSrcView: TextView? = null
     private var lastTgtView: TextView? = null
     private var lastSpeakBtn: Button? = null
+    private var lastBlock: LinearLayout? = null
     private var lastSeq = -1
     private var spinnerInit = false
     // Windows-style scroll logic: force to bottom once at Start, then only
@@ -309,7 +310,10 @@ class MainActivity : AppCompatActivity() {
                     if (lastSrcView == null || seq != lastSeq) {
                         lastSeq = seq
                         val srcView = TextView(this).apply { textSize = 14f; setTextColor(0xFFAAAAAA.toInt()) }
-                        val tgtView = TextView(this).apply { textSize = 20f; setTypeface(null, android.graphics.Typeface.BOLD) }
+                        val tgtView = TextView(this).apply {
+                            textSize = 20f; setTypeface(null, android.graphics.Typeface.BOLD)
+                            setSingleLine(false); maxLines = Int.MAX_VALUE
+                        }
                         lastSrcView = srcView; lastTgtView = tgtView
                         // Per-sentence 🔊 like Windows: tap this block's button
                         // reads this block's translation only, not all subtitles.
@@ -317,11 +321,29 @@ class MainActivity : AppCompatActivity() {
                         row.addView(tgtView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
                         lastSpeakBtn = Button(this).apply { text = "🔊"; setOnClickListener { speakText(tgtView.text.toString(), srcView.text.toString()) } }
                         row.addView(lastSpeakBtn)
-                        subContainer.addView(srcView); subContainer.addView(row)
+                        // Fix folded/overlapping subtitles: previously srcView and
+                        // the tgt row were two separate children of subContainer.
+                        // When a long translation grew from 1 line to 3 lines,
+                        // the row grew but the next srcView stayed at its old
+                        // position and overlapped the 3rd line. Now each sentence
+                        // is one vertical block (src on top, tgt row below), so
+                        // the whole block grows together and the next sentence
+                        // is pushed down instead of overlapping.
+                        val block = LinearLayout(this).apply {
+                            orientation = LinearLayout.VERTICAL
+                            setPadding(0, 8, 0, 8)
+                        }
+                        block.addView(srcView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+                        block.addView(row, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+                        lastBlock = block
+                        subContainer.addView(block)
                     }
                     lastSrcView?.text = src
                     lastTgtView?.text = tgt
                     lastTgtView?.setTextColor(color)
+                    // Force the block to re-measure when the text grows to more
+                    // lines, otherwise a long sentence stays folded.
+                    lastBlock?.requestLayout()
                     if (tgt.isNotEmpty()) lastTgtText = tgt
                     if (src.isNotEmpty()) lastSrcText = src
                     if (forceScrollOnce || nearBottom) {
