@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private var tts: TextToSpeech? = null
     @Volatile private var ttsPlaying = false
     private var lastTgtText = ""
+    private var lastSrcText = ""
     private var lastMode = "zh-en"
     private lateinit var statusText: TextView
     private lateinit var ttsEngineText: TextView
@@ -36,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var subScroll: ScrollView
     private var lastSrcView: TextView? = null
     private var lastTgtView: TextView? = null
+    private var lastSpeakBtn: Button? = null
     private var lastSeq = -1
     private var spinnerInit = false
     // Windows-style scroll logic: force to bottom once at Start, then only
@@ -101,45 +103,7 @@ class MainActivity : AppCompatActivity() {
             override fun onError(id: String?) { ttsPlaying = false }
             override fun onError(id: String?, errorCode: Int) { ttsPlaying = false }
         })
-        speakBtn.setOnClickListener {
-            val text = lastTgtText
-            if (text.isEmpty()) { statusText.text = "还没有译文，先开始说一句话"; return@setOnClickListener }
-            // If a previous TTS got stuck, tapping Speak again must not leave
-            // ttsPlaying=true forever: stop the old one first.
-            tts?.stop(); ttsPlaying = false
-            val locale = when {
-                lastMode == "zh-zhen" -> Locale.ENGLISH
-                lastMode.endsWith("ja") || lastMode.startsWith("ja") -> Locale.JAPANESE
-                lastMode.endsWith("ko") -> Locale.KOREAN
-                lastMode.endsWith("ru") -> Locale("ru")
-                lastMode.endsWith("it") -> Locale.ITALIAN
-                lastMode.endsWith("es") -> Locale("es")
-                lastMode.endsWith("fr") -> Locale.FRENCH
-                lastMode.endsWith("de") -> Locale.GERMAN
-                else -> Locale.ENGLISH
-            }
-            // Check language data BEFORE speaking: if the voice pack for this
-            // language is missing / not supported, do not set ttsPlaying=true
-            // and get stuck. Tell the user to download it in system settings.
-            val avail = tts?.isLanguageAvailable(locale) ?: TextToSpeech.LANG_NOT_SUPPORTED
-            if (avail == TextToSpeech.LANG_MISSING_DATA || avail == TextToSpeech.LANG_NOT_SUPPORTED) {
-                statusText.text = "朗读失败：该语言语音包未安装（$locale），请到 设置 → 文字转语音输出 下载该语言语音包"
-                ttsPlaying = false
-                return@setOnClickListener
-            }
-            tts?.language = locale
-            ttsPlaying = true
-            val rc = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ast-tts") ?: TextToSpeech.ERROR
-            if (rc == TextToSpeech.ERROR) {
-                ttsPlaying = false
-                statusText.text = "朗读失败：手机语音引擎不可用或该语言未安装，请检查系统语音设置"
-            } else {
-                // Safety timeout: even if onDone/onError never fires (engine bug,
-                // flushed utterance), the mic must resume. Estimate ~5 chars/sec.
-                val timeoutMs = (text.length * 200L + 5000L).coerceAtMost(60000L)
-                Handler(Looper.getMainLooper()).postDelayed({ ttsPlaying = false }, timeoutMs)
-            }
-        }
+        speakBtn.setOnClickListener { speakText(lastTgtText, lastSrcText) }
         statusText = findViewById(R.id.statusText)
         subText = findViewById(R.id.subText)
         subContainer = findViewById(R.id.subContainer)
@@ -158,6 +122,7 @@ class MainActivity : AppCompatActivity() {
             override fun getView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
                 val tv = super.getView(pos, v, parent) as TextView
                 tv.setTextColor(0xFFFFFFFF.toInt()); tv.textSize = 18f
+                tv.text = labels[pos] + "  ▼"
                 return tv
             }
             override fun getDropDownView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
@@ -186,6 +151,55 @@ class MainActivity : AppCompatActivity() {
             if (translator == null) start() else stop()
         }
         clearBtn.setOnClickListener { runOnUiThread { subContainer.removeAllViews(); lastSrcView = null; lastTgtView = null; lastSeq = -1 } }
+    }
+
+    // Playback: Windows has a 🔊 after every translated sentence, tap which
+    // sentence reads which sentence. Android previously had only one global
+    // button reading the latest sentence, which users read as "play all".
+    // Now: per-sentence 🔊 buttons + a top button renamed to "朗读最新一句".
+    // Locale is guessed from the translation itself: if it contains CJK, read
+    // Chinese; kana -> Japanese; hangul -> Korean; Cyrillic -> Russian;
+    // otherwise fall back to the current pair's foreign language.
+    private fun guessLocale(text: String, src: String): Locale {
+        if (text.any { it in '\u4e00'..'\u9fff' } && !text.any { it in '\u3040'..'\u30ff' } && !text.any { it in '\uac00'..'\ud7a3' }) {
+            // Pure CJK without kana/hangul: could be Chinese or Japanese kanji.
+            // If the source was Chinese, the translation is foreign, and vice versa.
+            if (src.any { it in '\u4e00'..'\u9fff' }) return when (lastMode) {
+                "zh-ja" -> Locale.JAPANESE; "zh-ko" -> Locale.KOREAN; "zh-ru" -> Locale("ru")
+                "zh-it" -> Locale.ITALIAN; "zh-es" -> Locale("es"); "zh-fr" -> Locale.FRENCH
+                "zh-de" -> Locale.GERMAN; else -> Locale.ENGLISH
+            } else return Locale.CHINESE
+        }
+        if (text.any { it in '\u3040'..'\u30ff' }) return Locale.JAPANESE
+        if (text.any { it in '\uac00'..'\ud7a3' }) return Locale.KOREAN
+        if (text.any { it in '\u0400'..'\u04ff' }) return Locale("ru")
+        if (text.any { it in '\u4e00'..'\u9fff' }) return Locale.CHINESE
+        return when (lastMode) {
+            "zh-ja" -> Locale.JAPANESE; "zh-ko" -> Locale.KOREAN; "zh-ru" -> Locale("ru")
+            "zh-it" -> Locale.ITALIAN; "zh-es" -> Locale("es"); "zh-fr" -> Locale.FRENCH
+            "zh-de" -> Locale.GERMAN; "zh-zhen" -> Locale.ENGLISH; else -> Locale.ENGLISH
+        }
+    }
+    private fun speakText(text: String, src: String) {
+        if (text.isEmpty()) { statusText.text = "还没有译文，先开始说一句话"; return }
+        tts?.stop(); ttsPlaying = false
+        val locale = guessLocale(text, src)
+        val avail = tts?.isLanguageAvailable(locale) ?: TextToSpeech.LANG_NOT_SUPPORTED
+        if (avail == TextToSpeech.LANG_MISSING_DATA || avail == TextToSpeech.LANG_NOT_SUPPORTED) {
+            statusText.text = "朗读失败：该语言语音包未安装（$locale），请到 设置 → 文字转语音输出 下载该语言语音包"
+            ttsPlaying = false
+            return
+        }
+        tts?.language = locale
+        ttsPlaying = true
+        val rc = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ast-tts") ?: TextToSpeech.ERROR
+        if (rc == TextToSpeech.ERROR) {
+            ttsPlaying = false
+            statusText.text = "朗读失败：手机语音引擎不可用或该语言未安装，请检查系统语音设置"
+        } else {
+            val timeoutMs = (text.length * 200L + 5000L).coerceAtMost(60000L)
+            Handler(Looper.getMainLooper()).postDelayed({ ttsPlaying = false }, timeoutMs)
+        }
     }
 
     private fun hideKeyboard() {
@@ -220,14 +234,22 @@ class MainActivity : AppCompatActivity() {
                     // the single block and no scrollbar ever appeared.
                     if (lastSrcView == null || seq != lastSeq) {
                         lastSeq = seq
-                        lastSrcView = TextView(this).apply { textSize = 14f; setTextColor(0xFFAAAAAA.toInt()) }
-                        lastTgtView = TextView(this).apply { textSize = 20f; setTypeface(null, android.graphics.Typeface.BOLD) }
-                        subContainer.addView(lastSrcView); subContainer.addView(lastTgtView)
+                        val srcView = TextView(this).apply { textSize = 14f; setTextColor(0xFFAAAAAA.toInt()) }
+                        val tgtView = TextView(this).apply { textSize = 20f; setTypeface(null, android.graphics.Typeface.BOLD) }
+                        lastSrcView = srcView; lastTgtView = tgtView
+                        // Per-sentence 🔊 like Windows: tap this block's button
+                        // reads this block's translation only, not all subtitles.
+                        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                        row.addView(tgtView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                        lastSpeakBtn = Button(this).apply { text = "🔊"; setOnClickListener { speakText(tgtView.text.toString(), srcView.text.toString()) } }
+                        row.addView(lastSpeakBtn)
+                        subContainer.addView(srcView); subContainer.addView(row)
                     }
                     lastSrcView?.text = src
                     lastTgtView?.text = tgt
                     lastTgtView?.setTextColor(color)
                     if (tgt.isNotEmpty()) lastTgtText = tgt
+                    if (src.isNotEmpty()) lastSrcText = src
                     if (forceScrollOnce || nearBottom) {
                         subScroll.post { subScroll.fullScroll(ScrollView.FOCUS_DOWN) }
                         forceScrollOnce = false

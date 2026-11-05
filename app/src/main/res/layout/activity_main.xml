@@ -5,12 +5,12 @@
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="实时双语同声传译 · 手机版" android:textSize="14sp" android:textColor="#AAAAAA" />
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="火山同声传译 2.0 API Key（只存在本机）" android:textColor="#CCCCCC" />
     <EditText android:id="@+id/keyEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="粘贴你的 API Key" android:inputType="textPassword" android:textColor="#FFFFFF" android:textColorHint="#888888" />
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="语言对（切换后自动重连）" android:textColor="#CCCCCC" />
-    <Spinner android:id="@+id/pairSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="语言对（点下面这个框切换，切换后自动重连）" android:textColor="#CCCCCC" />
+    <Spinner android:id="@+id/pairSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/spinner_bg" android:padding="10dp" />
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
         <Button android:id="@+id/startBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="开始" />
         <Button android:id="@+id/clearBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="清空字幕" />
-        <Button android:id="@+id/speakBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="🔊 朗读" />
+        <Button android:id="@+id/speakBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="🔊 朗读最新一句" />
     </LinearLayout>
     <TextView android:id="@+id/statusText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="未启动" android:textColor="#AAAAAA" />
     <TextView android:id="@+id/ttsEngineText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="朗读引擎：正在检测…" android:textColor="#AAAAAA" android:textSize="12sp" />
