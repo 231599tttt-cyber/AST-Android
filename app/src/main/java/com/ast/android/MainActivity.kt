@@ -22,6 +22,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var subScroll: ScrollView
     private var lastSrcView: TextView? = null
     private var lastTgtView: TextView? = null
+    // Windows-style scroll logic: force to bottom once at Start, then only
+    // follow when the user is already near the bottom, so scrolling up to
+    // read old subtitles is not hijacked by new subtitles.
+    private var forceScrollOnce = true
+    private var nearBottom = true
     private var translator: Translator? = null
     private var recording = false
     private var recordThread: Thread? = null
@@ -39,6 +44,12 @@ class MainActivity : AppCompatActivity() {
         subText = findViewById(R.id.subText)
         subContainer = findViewById(R.id.subContainer)
         subScroll = findViewById(R.id.subScroll)
+        subScroll.isScrollbarFadingEnabled = false
+        subScroll.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            val contentH = subContainer.height
+            val viewH = subScroll.height
+            nearBottom = scrollY + viewH >= contentH - 200
+        }
         val prefs = getSharedPreferences("ast", MODE_PRIVATE)
         keyEdit.setText(prefs.getString("api_key", ""))
         pairSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
@@ -59,6 +70,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
         statusText.text = "正在连接火山…"
+        forceScrollOnce = true
+        nearBottom = true
         val mode = modes[pairSpinner.selectedItemPosition]
         val tr = Translator(key, mode,
             onUtterance = { src, tgt, color ->
@@ -74,7 +87,10 @@ class MainActivity : AppCompatActivity() {
                     lastSrcView?.text = src
                     lastTgtView?.text = tgt
                     lastTgtView?.setTextColor(color)
-                    subScroll.post { subScroll.fullScroll(ScrollView.FOCUS_DOWN) }
+                    if (forceScrollOnce || nearBottom) {
+                        subScroll.post { subScroll.fullScroll(ScrollView.FOCUS_DOWN) }
+                        forceScrollOnce = false
+                    }
                 }
             },
             onStatus = { s -> runOnUiThread { statusText.text = s } })
