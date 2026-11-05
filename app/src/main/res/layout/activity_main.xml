@@ -13,6 +13,7 @@
         <Button android:id="@+id/speakBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="🔊 朗读" />
     </LinearLayout>
     <TextView android:id="@+id/statusText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="未启动" android:textColor="#AAAAAA" />
+    <TextView android:id="@+id/ttsEngineText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="朗读引擎：正在检测…" android:textColor="#AAAAAA" android:textSize="12sp" />
     <ScrollView android:id="@+id/subScroll" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:scrollbars="vertical" android:scrollbarStyle="insideOverlay" android:fadeScrollbars="false">
         <LinearLayout android:id="@+id/subContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
     </ScrollView>

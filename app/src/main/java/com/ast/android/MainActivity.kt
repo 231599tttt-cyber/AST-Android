@@ -30,6 +30,7 @@ class MainActivity : AppCompatActivity() {
     private var lastTgtText = ""
     private var lastMode = "zh-en"
     private lateinit var statusText: TextView
+    private lateinit var ttsEngineText: TextView
     private lateinit var subText: TextView
     private lateinit var subContainer: LinearLayout
     private lateinit var subScroll: ScrollView
@@ -73,7 +74,24 @@ class MainActivity : AppCompatActivity() {
         startBtn.setOnTouchListener(hideOnTouch)
         clearBtn.setOnTouchListener(hideOnTouch)
         speakBtn.setOnTouchListener(hideOnTouch)
-        tts = TextToSpeech(this) { }
+        ttsEngineText = findViewById(R.id.ttsEngineText)
+        tts = TextToSpeech(this) { code ->
+            runOnUiThread {
+                if (code == TextToSpeech.SUCCESS) {
+                    val eng = tts?.defaultEngine ?: "未知"
+                    val friendly = when (eng) {
+                        "com.google.android.tts" -> "Google 文字转语音"
+                        "com.samsung.SMT" -> "三星文字转语音"
+                        "com.huawei.hiai" -> "华为语音"
+                        "com.iflytek.speechcloud" -> "科大讯飞语音"
+                        else -> eng
+                    }
+                    ttsEngineText.text = "朗读引擎：$friendly"
+                } else {
+                    ttsEngineText.text = "朗读引擎：初始化失败，朗读不可用"
+                }
+            }
+        }
         // TTS listener set once, not per click: a flushed / failed utterance must
         // always reset ttsPlaying, otherwise the mic stays paused forever and the
         // app looks frozen, and restarting still sends nothing.
@@ -99,6 +117,15 @@ class MainActivity : AppCompatActivity() {
                 lastMode.endsWith("fr") -> Locale.FRENCH
                 lastMode.endsWith("de") -> Locale.GERMAN
                 else -> Locale.ENGLISH
+            }
+            // Check language data BEFORE speaking: if the voice pack for this
+            // language is missing / not supported, do not set ttsPlaying=true
+            // and get stuck. Tell the user to download it in system settings.
+            val avail = tts?.isLanguageAvailable(locale) ?: TextToSpeech.LANG_NOT_SUPPORTED
+            if (avail == TextToSpeech.LANG_MISSING_DATA || avail == TextToSpeech.LANG_NOT_SUPPORTED) {
+                statusText.text = "朗读失败：该语言语音包未安装（$locale），请到 设置 → 文字转语音输出 下载该语言语音包"
+                ttsPlaying = false
+                return@setOnClickListener
             }
             tts?.language = locale
             ttsPlaying = true
