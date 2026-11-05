@@ -12,6 +12,8 @@
         <Button android:id="@+id/clearBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="清空字幕" />
     </LinearLayout>
     <TextView android:id="@+id/statusText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="未启动" android:textColor="#AAAAAA" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="朗读引擎（在 App 内选，不用去系统设置）" android:textColor="#CCCCCC" />
+    <Spinner android:id="@+id/engineSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/spinner_bg" android:padding="10dp" />
     <TextView android:id="@+id/ttsEngineText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="朗读引擎：正在检测…" android:textColor="#AAAAAA" android:textSize="12sp" />
     <ScrollView android:id="@+id/subScroll" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:scrollbars="vertical" android:scrollbarStyle="insideOverlay" android:fadeScrollbars="false">
         <LinearLayout android:id="@+id/subContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />

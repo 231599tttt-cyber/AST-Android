@@ -31,6 +31,10 @@ class MainActivity : AppCompatActivity() {
     private var lastMode = "zh-en"
     private lateinit var statusText: TextView
     private lateinit var ttsEngineText: TextView
+    private lateinit var engineSpinner: Spinner
+    private var enginePackages = listOf<String>()
+    private var engineInit = false
+    private var selectedEngine: String? = null
     private lateinit var subText: TextView
     private lateinit var subContainer: LinearLayout
     private lateinit var subScroll: ScrollView
@@ -74,32 +78,24 @@ class MainActivity : AppCompatActivity() {
         startBtn.setOnTouchListener(hideOnTouch)
         clearBtn.setOnTouchListener(hideOnTouch)
         ttsEngineText = findViewById(R.id.ttsEngineText)
-        tts = TextToSpeech(this) { code ->
-            runOnUiThread {
-                if (code == TextToSpeech.SUCCESS) {
-                    val eng = tts?.defaultEngine ?: "未知"
-                    val friendly = when (eng) {
-                        "com.google.android.tts" -> "Google 文字转语音"
-                        "com.samsung.SMT" -> "三星文字转语音"
-                        "com.huawei.hiai" -> "华为语音"
-                        "com.iflytek.speechcloud" -> "科大讯飞语音"
-                        else -> eng
-                    }
-                    ttsEngineText.text = "朗读引擎：$friendly"
-                } else {
-                    ttsEngineText.text = "朗读引擎：初始化失败，朗读不可用"
+        engineSpinner = findViewById(R.id.engineSpinner)
+        // In-app engine selection: list every TTS engine installed on the phone,
+        // let the user pick Google / system / etc. inside AST, without going to
+        // system settings and without restarting the app to re-init.
+        selectedEngine = getSharedPreferences("ast", MODE_PRIVATE).getString("tts_engine", null)
+        initTts(selectedEngine)
+        engineSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, pos: Int, id: Long) {
+                if (!engineInit) { engineInit = true; return }
+                val pkg = if (pos < enginePackages.size) enginePackages[pos] else null
+                if (pkg != selectedEngine) {
+                    selectedEngine = pkg
+                    getSharedPreferences("ast", MODE_PRIVATE).edit().putString("tts_engine", pkg).apply()
+                    initTts(pkg)
                 }
             }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        // TTS listener set once, not per click: a flushed / failed utterance must
-        // always reset ttsPlaying, otherwise the mic stays paused forever and the
-        // app looks frozen, and restarting still sends nothing.
-        tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-            override fun onStart(id: String?) {}
-            override fun onDone(id: String?) { ttsPlaying = false }
-            override fun onError(id: String?) { ttsPlaying = false }
-            override fun onError(id: String?, errorCode: Int) { ttsPlaying = false }
-        })
         statusText = findViewById(R.id.statusText)
         subText = findViewById(R.id.subText)
         subContainer = findViewById(R.id.subContainer)
@@ -195,6 +191,65 @@ class MainActivity : AppCompatActivity() {
             val timeoutMs = (text.length * 200L + 5000L).coerceAtMost(60000L)
             Handler(Looper.getMainLooper()).postDelayed({ ttsPlaying = false }, timeoutMs)
         }
+    }
+
+    private fun friendlyEngine(pkg: String): String = when (pkg) {
+        "com.google.android.tts" -> "Google 语音识别和语音合成"
+        "com.samsung.SMT" -> "三星文字转语音"
+        "com.huawei.hiai" -> "华为语音"
+        "com.iflytek.speechcloud" -> "科大讯飞语音"
+        else -> pkg
+    }
+    private fun initTts(enginePkg: String?) {
+        try { tts?.stop() } catch (_: Exception) {}
+        try { tts?.shutdown() } catch (_: Exception) {}
+        ttsPlaying = false
+        ttsEngineText.text = "朗读引擎：正在初始化…"
+        val listener = TextToSpeech.OnInitListener { code ->
+            runOnUiThread {
+                if (code == TextToSpeech.SUCCESS) {
+                    val eng = tts?.defaultEngine ?: enginePkg ?: "未知"
+                    ttsEngineText.text = "朗读引擎：${friendlyEngine(eng)}（已就绪）"
+                    // Populate engine list once, from this TTS instance.
+                    val engines = try { tts?.engines?.map { it.name } ?: emptyList() } catch (_: Exception) { emptyList() }
+                    if (engines.isNotEmpty() && enginePackages != engines) {
+                        enginePackages = engines
+                        val labelsE = engines.map { friendlyEngine(it) + "  ▼" }
+                        val ad = object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, labelsE) {
+                            override fun getView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                                val tv = super.getView(pos, v, parent) as TextView
+                                tv.setTextColor(0xFFFFFFFF.toInt()); tv.textSize = 16f; return tv
+                            }
+                            override fun getDropDownView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                                val tv = super.getDropDownView(pos, v, parent) as TextView
+                                tv.setTextColor(0xFFFFFFFF.toInt()); tv.setBackgroundColor(0xFF222222.toInt()); tv.textSize = 16f; return tv
+                            }
+                        }
+                        engineSpinner.adapter = ad
+                        val selIdx = engines.indexOf(eng).let { if (it >= 0) it else 0 }
+                        engineInit = false
+                        engineSpinner.setSelection(selIdx)
+                        // setSelection triggers onItemSelected; engineInit flag above
+                        // makes the first call a no-op, subsequent user picks re-init.
+                        engineInit = true
+                    }
+                } else {
+                    ttsEngineText.text = "朗读引擎：初始化失败，朗读不可用（请在上面框里换一个引擎试试）"
+                    // Still try to list engines via a default instance if possible.
+                    if (enginePackages.isEmpty()) {
+                        val labelsE = listOf("系统默认  ▼")
+                        engineSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, labelsE)
+                    }
+                }
+            }
+        }
+        tts = if (enginePkg.isNullOrEmpty()) TextToSpeech(this, listener) else TextToSpeech(this, listener, enginePkg)
+        tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+            override fun onStart(id: String?) {}
+            override fun onDone(id: String?) { ttsPlaying = false }
+            override fun onError(id: String?) { ttsPlaying = false }
+            override fun onError(id: String?, errorCode: Int) { ttsPlaying = false }
+        })
     }
 
     private fun hideKeyboard() {
