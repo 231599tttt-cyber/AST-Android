@@ -24,6 +24,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pairSpinner: Spinner
     private lateinit var startBtn: Button
     private lateinit var clearBtn: Button
+    private lateinit var settingsBtn: Button
+    private lateinit var settingsPanel: LinearLayout
     private var tts: TextToSpeech? = null
     @Volatile private var ttsPlaying = false
     private var lastTgtText = ""
@@ -76,6 +78,15 @@ class MainActivity : AppCompatActivity() {
         pairSpinner = findViewById(R.id.pairSpinner)
         startBtn = findViewById(R.id.startBtn)
         clearBtn = findViewById(R.id.clearBtn)
+        settingsBtn = findViewById(R.id.settingsBtn)
+        settingsPanel = findViewById(R.id.settingsPanel)
+        // Settings are collapsible: API Key, language pair and TTS engine live
+        // in one panel, toggled by the ⚙️ 设置 button. The subtitle board then
+        // gets almost the whole screen. If no key is saved yet, the panel
+        // opens by default so a first-time user can see where to fill it.
+        settingsBtn.setOnClickListener {
+            settingsPanel.visibility = if (settingsPanel.visibility == android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE
+        }
         startBtn.setOnTouchListener(hideOnTouch)
         clearBtn.setOnTouchListener(hideOnTouch)
         ttsEngineText = findViewById(R.id.ttsEngineText)
@@ -115,6 +126,7 @@ class MainActivity : AppCompatActivity() {
         }
         val prefs = getSharedPreferences("ast", MODE_PRIVATE)
         keyEdit.setText(prefs.getString("api_key", ""))
+        settingsPanel.visibility = if (prefs.getString("api_key", "").isNullOrEmpty()) android.view.View.VISIBLE else android.view.View.GONE
         // Spinner text must be white on the dark background, otherwise it is
         // invisible (the default layout uses black text).
         val spinnerAdapter = object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, labels) {

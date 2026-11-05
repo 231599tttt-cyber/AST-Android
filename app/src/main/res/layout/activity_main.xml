@@ -1,20 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#111111" android:padding="16dp">
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="AST" android:textSize="26sp" android:textStyle="bold" android:textColor="#FFFFFF" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="AST" android:textSize="26sp" android:textStyle="bold" android:textColor="#FFFFFF" />
+        <Button android:id="@+id/settingsBtn" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⚙️ 设置" />
+    </LinearLayout>
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="实时双语同声传译 · 手机版" android:textSize="14sp" android:textColor="#AAAAAA" />
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="API Key（只存在本机）" android:textColor="#CCCCCC" />
-    <EditText android:id="@+id/keyEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="粘贴你的 API Key" android:inputType="textPassword" android:textColor="#FFFFFF" android:textColorHint="#888888" />
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="语言对（点下面这个框切换，切换后自动重连）" android:textColor="#CCCCCC" />
-    <Spinner android:id="@+id/pairSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/spinner_bg" android:padding="10dp" />
+    <LinearLayout android:id="@+id/settingsPanel" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="API Key（只存在本机）" android:textColor="#CCCCCC" />
+        <EditText android:id="@+id/keyEdit" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="粘贴你的 API Key" android:inputType="textPassword" android:textColor="#FFFFFF" android:textColorHint="#888888" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="语言对（点下面这个框切换，切换后自动重连）" android:textColor="#CCCCCC" />
+        <Spinner android:id="@+id/pairSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/spinner_bg" android:padding="10dp" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="朗读引擎（在 App 内选，不用去系统设置）" android:textColor="#CCCCCC" />
+        <Spinner android:id="@+id/engineSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/spinner_bg" android:padding="10dp" />
+        <TextView android:id="@+id/ttsEngineText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="朗读引擎：正在检测…" android:textColor="#AAAAAA" android:textSize="12sp" />
+    </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
         <Button android:id="@+id/startBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="开始" />
         <Button android:id="@+id/clearBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="清空字幕" />
     </LinearLayout>
     <TextView android:id="@+id/statusText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="未启动" android:textColor="#AAAAAA" />
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="朗读引擎（在 App 内选，不用去系统设置）" android:textColor="#CCCCCC" />
-    <Spinner android:id="@+id/engineSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/spinner_bg" android:padding="10dp" />
-    <TextView android:id="@+id/ttsEngineText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="朗读引擎：正在检测…" android:textColor="#AAAAAA" android:textSize="12sp" />
     <ScrollView android:id="@+id/subScroll" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:scrollbars="vertical" android:scrollbarStyle="insideOverlay" android:fadeScrollbars="false">
         <LinearLayout android:id="@+id/subContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
     </ScrollView>
