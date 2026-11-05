@@ -10,7 +10,6 @@
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
         <Button android:id="@+id/startBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="开始" />
         <Button android:id="@+id/clearBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="清空字幕" />
-        <Button android:id="@+id/speakBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="🔊 朗读最新一句" />
     </LinearLayout>
     <TextView android:id="@+id/statusText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="未启动" android:textColor="#AAAAAA" />
     <TextView android:id="@+id/ttsEngineText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="朗读引擎：正在检测…" android:textColor="#AAAAAA" android:textSize="12sp" />

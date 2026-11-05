@@ -24,7 +24,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pairSpinner: Spinner
     private lateinit var startBtn: Button
     private lateinit var clearBtn: Button
-    private lateinit var speakBtn: Button
     private var tts: TextToSpeech? = null
     @Volatile private var ttsPlaying = false
     private var lastTgtText = ""
@@ -72,10 +71,8 @@ class MainActivity : AppCompatActivity() {
         pairSpinner = findViewById(R.id.pairSpinner)
         startBtn = findViewById(R.id.startBtn)
         clearBtn = findViewById(R.id.clearBtn)
-        speakBtn = findViewById(R.id.speakBtn)
         startBtn.setOnTouchListener(hideOnTouch)
         clearBtn.setOnTouchListener(hideOnTouch)
-        speakBtn.setOnTouchListener(hideOnTouch)
         ttsEngineText = findViewById(R.id.ttsEngineText)
         tts = TextToSpeech(this) { code ->
             runOnUiThread {
@@ -103,7 +100,6 @@ class MainActivity : AppCompatActivity() {
             override fun onError(id: String?) { ttsPlaying = false }
             override fun onError(id: String?, errorCode: Int) { ttsPlaying = false }
         })
-        speakBtn.setOnClickListener { speakText(lastTgtText, lastSrcText) }
         statusText = findViewById(R.id.statusText)
         subText = findViewById(R.id.subText)
         subContainer = findViewById(R.id.subContainer)
@@ -154,9 +150,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Playback: Windows has a 🔊 after every translated sentence, tap which
-    // sentence reads which sentence. Android previously had only one global
-    // button reading the latest sentence, which users read as "play all".
-    // Now: per-sentence 🔊 buttons + a top button renamed to "朗读最新一句".
+    // sentence reads which sentence. The top "朗读最新一句" button was removed
+    // at the user's request; only per-sentence 🔊 buttons remain.
     // Locale is guessed from the translation itself: if it contains CJK, read
     // Chinese; kana -> Japanese; hangul -> Korean; Cyrillic -> Russian;
     // otherwise fall back to the current pair's foreign language.
