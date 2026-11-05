@@ -317,24 +317,27 @@ class MainActivity : AppCompatActivity() {
                         lastSrcView = srcView; lastTgtView = tgtView
                         // Per-sentence 🔊 like Windows: tap this block's button
                         // reads this block's translation only, not all subtitles.
-                        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-                        row.addView(tgtView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-                        lastSpeakBtn = Button(this).apply { text = "🔊"; setOnClickListener { speakText(tgtView.text.toString(), srcView.text.toString()) } }
-                        row.addView(lastSpeakBtn)
-                        // Fix folded/overlapping subtitles: previously srcView and
-                        // the tgt row were two separate children of subContainer.
-                        // When a long translation grew from 1 line to 3 lines,
-                        // the row grew but the next srcView stayed at its old
-                        // position and overlapped the 3rd line. Now each sentence
-                        // is one vertical block (src on top, tgt row below), so
-                        // the whole block grows together and the next sentence
-                        // is pushed down instead of overlapping.
+                        lastSpeakBtn = Button(this).apply { text = "🔊  朗读"; setOnClickListener { speakText(tgtView.text.toString(), srcView.text.toString()) } }
+                        // Fix folded/overlapping subtitles, v13: v12 wrapped src+tgt
+                        // in one block but tgt was still in a horizontal row with
+                        // weight 1 next to the button. That row's height was
+                        // measured from the button (1 line), so when a long
+                        // translation grew to 2-3 lines the next sentence stayed
+                        // at the old height and covered the 2nd/3rd line.
+                        // Now the block is purely vertical: src on top, tgt full
+                        // width on its own line, 🔊 button on its own line at
+                        // the right. No weight, no horizontal row, so a long
+                        // translation measures its full height and pushes the
+                        // next sentence down.
                         val block = LinearLayout(this).apply {
                             orientation = LinearLayout.VERTICAL
                             setPadding(0, 8, 0, 8)
                         }
                         block.addView(srcView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-                        block.addView(row, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+                        block.addView(tgtView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+                        val btnParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                        btnParams.gravity = android.view.Gravity.END
+                        block.addView(lastSpeakBtn, btnParams)
                         lastBlock = block
                         subContainer.addView(block)
                     }
