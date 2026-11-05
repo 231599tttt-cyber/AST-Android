@@ -27,8 +27,8 @@ android {
         minSdk = 26
         targetSdk = 34
         // Bump on every release: Android update requires a higher versionCode.
-        versionCode = 7
-        versionName = "1.6"
+        versionCode = 8
+        versionName = "1.7"
     }
     buildTypes {
         debug {

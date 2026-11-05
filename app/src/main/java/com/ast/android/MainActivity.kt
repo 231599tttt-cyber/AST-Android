@@ -205,14 +205,14 @@ class MainActivity : AppCompatActivity() {
     private fun start() {
         hideKeyboard(); keyEdit.clearFocus()
         val key = keyEdit.text.toString().trim()
-        if (key.isEmpty()) { statusText.text = "请先填火山同声传译 2.0 的 API Key（存在本机，不会上传到代码仓库）"; return }
+        if (key.isEmpty()) { statusText.text = "请先填 API Key（存在本机，不会上传到代码仓库）"; return }
         getSharedPreferences("ast", MODE_PRIVATE).edit().putString("api_key", key).apply()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
             statusText.text = "请允许录音权限后再点开始"
             return
         }
-        statusText.text = "正在连接火山…"
+        statusText.text = "正在连接…"
         forceScrollOnce = true
         nearBottom = true
         lastSeq = -1
