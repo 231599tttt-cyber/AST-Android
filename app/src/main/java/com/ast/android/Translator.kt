@@ -8,7 +8,7 @@ import kotlin.random.Random
 class Translator(
     private val apiKey: String,
     private val mode: String, // zh-zhen, zh-en, zh-ja, zh-ko, zh-ru, zh-it, zh-es, zh-fr, zh-de
-    private val onUtterance: (src: String, tgt: String, color: Int) -> Unit,
+    private val onUtterance: (src: String, tgt: String, color: Int, seq: Int) -> Unit,
     private val onStatus: (String) -> Unit
 ) {
     private val palette = listOf(0xFF7FC8FF.toInt(), 0xFF7BD88F.toInt(), 0xFFFFB86B.toInt(), 0xFFD9A7FF.toInt(), 0xFFFF8FA3.toInt(), 0xFFFFD166.toInt(), 0xFF4DD0E1.toInt(), 0xFFFF6B6B.toInt(), 0xFFA3E635.toInt(), 0xFFA78BFA.toInt())
@@ -73,7 +73,7 @@ class Translator(
         if (lang != "unknown") direction = expectedWho
         if (who == expectedWho) {
             val s = acc[who]!!["src"] ?: ""; val t = acc[who]!!["tgt"] ?: ""
-            if (s.isNotEmpty() || t.isNotEmpty()) onUtterance(s, t, palette[colorIdx])
+            if (s.isNotEmpty() || t.isNotEmpty()) onUtterance(s, t, palette[colorIdx], seq)
         }
         if (isEnd) { /* keep last utterance on screen; next Start will advance */ }
     }
@@ -81,8 +81,8 @@ class Translator(
     fun start(): Boolean {
         return if (mode == "zh-zhen") {
             val s = AstSession(apiKey, "zhen", "zhen",
-                onSrc = { t, f -> onUtterance(t, acc["them"]!!["tgt"] ?: "", palette[colorIdx]); if (f) acc["them"]!!["src"] = t },
-                onTgt = { t, f -> val srcNow = acc["them"]!!["src"] ?: ""; onUtterance(srcNow, t, palette[colorIdx]) },
+                onSrc = { t, f -> onUtterance(t, acc["them"]!!["tgt"] ?: "", palette[colorIdx], seq); if (f) acc["them"]!!["src"] = t },
+                onTgt = { t, f -> val srcNow = acc["them"]!!["src"] ?: ""; onUtterance(srcNow, t, palette[colorIdx], seq) },
                 onStart = { onSpk(it) }, onSentenceStart = { onSentenceStart() }, onStatus = onStatus)
             // Simpler zhen handling: keep a single accumulator via onUtterance above is approximate;
             // MainActivity also receives incremental src/tgt and replaces the last line.

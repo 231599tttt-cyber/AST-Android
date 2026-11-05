@@ -29,6 +29,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var subScroll: ScrollView
     private var lastSrcView: TextView? = null
     private var lastTgtView: TextView? = null
+    private var lastSeq = -1
+    private var spinnerInit = false
     // Windows-style scroll logic: force to bottom once at Start, then only
     // follow when the user is already near the bottom, so scrolling up to
     // read old subtitles is not hijacked by new subtitles.
@@ -84,12 +86,40 @@ class MainActivity : AppCompatActivity() {
         }
         val prefs = getSharedPreferences("ast", MODE_PRIVATE)
         keyEdit.setText(prefs.getString("api_key", ""))
-        pairSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
+        // Spinner text must be white on the dark background, otherwise it is
+        // invisible (the default layout uses black text).
+        val spinnerAdapter = object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, labels) {
+            override fun getView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                val tv = super.getView(pos, v, parent) as TextView
+                tv.setTextColor(0xFFFFFFFF.toInt()); tv.textSize = 18f
+                return tv
+            }
+            override fun getDropDownView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                val tv = super.getDropDownView(pos, v, parent) as TextView
+                tv.setTextColor(0xFFFFFFFF.toInt()); tv.setBackgroundColor(0xFF222222.toInt()); tv.textSize = 18f
+                return tv
+            }
+        }
+        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        pairSpinner.adapter = spinnerAdapter
         pairSpinner.setSelection(1)
+        pairSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, pos: Int, id: Long) {
+                if (!spinnerInit) { spinnerInit = true; return }
+                val newMode = modes[pos]
+                if (translator != null && newMode != lastMode) {
+                    // Language switch while running: stop and restart with the new pair,
+                    // otherwise the switch appears to do nothing.
+                    stop()
+                    pairSpinner.postDelayed({ start() }, 300)
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
         startBtn.setOnClickListener {
             if (translator == null) start() else stop()
         }
-        clearBtn.setOnClickListener { runOnUiThread { subContainer.removeAllViews(); lastSrcView = null; lastTgtView = null } }
+        clearBtn.setOnClickListener { runOnUiThread { subContainer.removeAllViews(); lastSrcView = null; lastTgtView = null; lastSeq = -1 } }
     }
 
     private fun start() {
@@ -104,15 +134,20 @@ class MainActivity : AppCompatActivity() {
         statusText.text = "正在连接火山…"
         forceScrollOnce = true
         nearBottom = true
+        lastSeq = -1
         val mode = modes[pairSpinner.selectedItemPosition]
         lastMode = mode
         val tr = Translator(key, mode,
-            onUtterance = { src, tgt, color ->
+            onUtterance = { src, tgt, color, seq ->
                 runOnUiThread {
                     // Windows-style subtitle block: original small grey on top,
                     // translation large bold in speaker colour below.
-                    // Incremental updates replace the last block, new sentences append.
-                    if (lastSrcView == null) {
+                    // Incremental updates replace the last block, new sentences
+                    // (new seq) append a fresh block instead of overwriting.
+                    // Previous bug: seq was ignored, so every sentence overwrote
+                    // the single block and no scrollbar ever appeared.
+                    if (lastSrcView == null || seq != lastSeq) {
+                        lastSeq = seq
                         lastSrcView = TextView(this).apply { textSize = 14f; setTextColor(0xFFAAAAAA.toInt()) }
                         lastTgtView = TextView(this).apply { textSize = 20f; setTypeface(null, android.graphics.Typeface.BOLD) }
                         subContainer.addView(lastSrcView); subContainer.addView(lastTgtView)
