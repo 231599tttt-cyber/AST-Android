@@ -82,7 +82,13 @@ class MainActivity : AppCompatActivity() {
         // In-app engine selection: list every TTS engine installed on the phone,
         // let the user pick Google / system / etc. inside AST, without going to
         // system settings and without restarting the app to re-init.
+        // Bug fix v10: previously the list came from a TTS instance that had
+        // to init successfully first. If the default engine failed to init,
+        // the list was empty / only "系统默认" and the user could not pick
+        // Google at all. Now list engines via PackageManager, which works
+        // even when init fails.
         selectedEngine = getSharedPreferences("ast", MODE_PRIVATE).getString("tts_engine", null)
+        populateEngineSpinner()
         initTts(selectedEngine)
         engineSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, pos: Int, id: Long) {
@@ -193,6 +199,33 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun populateEngineSpinner() {
+        val intent = android.content.Intent("android.intent.action.TTS_SERVICE")
+        val services = try { packageManager.queryIntentServices(intent, 0) } catch (_: Exception) { emptyList() }
+        val pkgs = services.map { it.serviceInfo.packageName }.distinct().sorted()
+        if (pkgs.isNotEmpty()) {
+            enginePackages = pkgs
+            val labelsE = pkgs.map { friendlyEngine(it) }
+            val ad = object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, labelsE) {
+                override fun getView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                    val tv = super.getView(pos, v, parent) as TextView
+                    tv.setTextColor(0xFFFFFFFF.toInt()); tv.textSize = 16f
+                    tv.text = labelsE[pos] + "  ▼"
+                    return tv
+                }
+                override fun getDropDownView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                    val tv = super.getDropDownView(pos, v, parent) as TextView
+                    tv.setTextColor(0xFFFFFFFF.toInt()); tv.setBackgroundColor(0xFF222222.toInt()); tv.textSize = 16f
+                    return tv
+                }
+            }
+            engineSpinner.adapter = ad
+            val selIdx = selectedEngine?.let { pkgs.indexOf(it) }?.takeIf { it >= 0 } ?: 0
+            engineInit = false
+            engineSpinner.setSelection(selIdx)
+            engineInit = true
+        }
+    }
     private fun friendlyEngine(pkg: String): String = when (pkg) {
         "com.google.android.tts" -> "Google 语音识别和语音合成"
         "com.samsung.SMT" -> "三星文字转语音"
@@ -210,36 +243,19 @@ class MainActivity : AppCompatActivity() {
                 if (code == TextToSpeech.SUCCESS) {
                     val eng = tts?.defaultEngine ?: enginePkg ?: "未知"
                     ttsEngineText.text = "朗读引擎：${friendlyEngine(eng)}（已就绪）"
-                    // Populate engine list once, from this TTS instance.
-                    val engines = try { tts?.engines?.map { it.name } ?: emptyList() } catch (_: Exception) { emptyList() }
-                    if (engines.isNotEmpty() && enginePackages != engines) {
-                        enginePackages = engines
-                        val labelsE = engines.map { friendlyEngine(it) + "  ▼" }
-                        val ad = object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, labelsE) {
-                            override fun getView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
-                                val tv = super.getView(pos, v, parent) as TextView
-                                tv.setTextColor(0xFFFFFFFF.toInt()); tv.textSize = 16f; return tv
-                            }
-                            override fun getDropDownView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
-                                val tv = super.getDropDownView(pos, v, parent) as TextView
-                                tv.setTextColor(0xFFFFFFFF.toInt()); tv.setBackgroundColor(0xFF222222.toInt()); tv.textSize = 16f; return tv
-                            }
-                        }
-                        engineSpinner.adapter = ad
-                        val selIdx = engines.indexOf(eng).let { if (it >= 0) it else 0 }
+                    // Engine list is already populated via PackageManager, do not
+                    // overwrite it here. Just sync the selection to the actual engine.
+                    val idx = enginePackages.indexOf(eng)
+                    if (idx >= 0 && engineSpinner.selectedItemPosition != idx) {
                         engineInit = false
-                        engineSpinner.setSelection(selIdx)
-                        // setSelection triggers onItemSelected; engineInit flag above
-                        // makes the first call a no-op, subsequent user picks re-init.
+                        engineSpinner.setSelection(idx)
                         engineInit = true
                     }
                 } else {
                     ttsEngineText.text = "朗读引擎：初始化失败，朗读不可用（请在上面框里换一个引擎试试）"
-                    // Still try to list engines via a default instance if possible.
-                    if (enginePackages.isEmpty()) {
-                        val labelsE = listOf("系统默认  ▼")
-                        engineSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, labelsE)
-                    }
+                    // List stays as populated via PackageManager, so the user can
+                    // still pick another engine even though this one failed.
+                    if (enginePackages.isEmpty()) populateEngineSpinner()
                 }
             }
         }
