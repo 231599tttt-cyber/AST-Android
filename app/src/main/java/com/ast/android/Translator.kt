@@ -17,6 +17,15 @@ class Translator(
     private var seq = 0
     private var lastStartMs = 0L
     private var lastSpkMs = 0L
+    // True when the previous sentence has ended (a SubtitleEnd event arrived).
+    // Fast-speech fix: previously a new Start within 1000ms was always ignored
+    // as a duplicate from the second session, so when someone spoke fast the
+    // second sentence overwrote the first one the user had already seen.
+    // Now a Start advances to a new line immediately if the previous sentence
+    // already ended, no matter how fast it came; only a Start that arrives
+    // within 200ms while the previous sentence is still in progress is treated
+    // as the duplicate from the other session.
+    private var sentenceEnded = true
     private val acc = mutableMapOf("them" to mutableMapOf("src" to "", "tgt" to ""), "me" to mutableMapOf("src" to "", "tgt" to ""))
     private var direction = "them"
     private var s1: AstSession? = null
@@ -42,7 +51,7 @@ class Translator(
 
     private fun onSentenceStart() {
         val now = System.currentTimeMillis()
-        if (now - lastStartMs < 1000) return
+        if (now - lastStartMs < 200 && !sentenceEnded) return
         lastStartMs = now
         val hasPrev = acc.values.any { it.values.any { v -> v.isNotEmpty() } }
         if (hasPrev) {
@@ -50,7 +59,10 @@ class Translator(
             acc["them"]!!["src"] = ""; acc["them"]!!["tgt"] = ""
             acc["me"]!!["src"] = ""; acc["me"]!!["tgt"] = ""
         }
+        sentenceEnded = false
     }
+
+    private fun markEnded() { sentenceEnded = true }
 
     private fun onSpk(spkChg: Boolean) {
         if (!spkChg) return
@@ -64,6 +76,7 @@ class Translator(
     }
 
     private fun onDelta(who: String, kind: String, text: String, isEnd: Boolean) {
+        if (isEnd) sentenceEnded = true
         acc[who]!![kind] = text
         // Direction: only emit the session whose source matches the detected language.
         // For zhen, there is only one session, handled separately.
@@ -81,8 +94,8 @@ class Translator(
     fun start(): Boolean {
         return if (mode == "zh-zhen") {
             val s = AstSession(apiKey, "zhen", "zhen",
-                onSrc = { t, f -> onUtterance(t, acc["them"]!!["tgt"] ?: "", palette[colorIdx], seq); if (f) acc["them"]!!["src"] = t },
-                onTgt = { t, f -> val srcNow = acc["them"]!!["src"] ?: ""; onUtterance(srcNow, t, palette[colorIdx], seq) },
+                onSrc = { t, f -> if (f) markEnded(); acc["them"]!!["src"] = t; onUtterance(t, acc["them"]!!["tgt"] ?: "", palette[colorIdx], seq) },
+                onTgt = { t, f -> if (f) markEnded(); acc["them"]!!["tgt"] = t; val srcNow = acc["them"]!!["src"] ?: ""; onUtterance(srcNow, t, palette[colorIdx], seq) },
                 onStart = { onSpk(it) }, onSentenceStart = { onSentenceStart() }, onStatus = onStatus)
             // Simpler zhen handling: keep a single accumulator via onUtterance above is approximate;
             // MainActivity also receives incremental src/tgt and replaces the last line.
