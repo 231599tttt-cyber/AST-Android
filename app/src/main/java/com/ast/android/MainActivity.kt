@@ -6,7 +6,9 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import android.widget.*
+import java.util.Locale
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -16,6 +18,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pairSpinner: Spinner
     private lateinit var startBtn: Button
     private lateinit var clearBtn: Button
+    private lateinit var speakBtn: Button
+    private var tts: TextToSpeech? = null
+    @Volatile private var ttsPlaying = false
+    private var lastTgtText = ""
+    private var lastMode = "zh-en"
     private lateinit var statusText: TextView
     private lateinit var subText: TextView
     private lateinit var subContainer: LinearLayout
@@ -40,6 +47,31 @@ class MainActivity : AppCompatActivity() {
         pairSpinner = findViewById(R.id.pairSpinner)
         startBtn = findViewById(R.id.startBtn)
         clearBtn = findViewById(R.id.clearBtn)
+        speakBtn = findViewById(R.id.speakBtn)
+        tts = TextToSpeech(this) { }
+        speakBtn.setOnClickListener {
+            val text = lastTgtText
+            if (text.isEmpty()) { statusText.text = "还没有译文，先开始说一句话"; return@setOnClickListener }
+            val locale = when {
+                lastMode == "zh-zhen" -> Locale.ENGLISH
+                lastMode.endsWith("ja") || lastMode.startsWith("ja") -> Locale.JAPANESE
+                lastMode.endsWith("ko") -> Locale.KOREAN
+                lastMode.endsWith("ru") -> Locale("ru")
+                lastMode.endsWith("it") -> Locale.ITALIAN
+                lastMode.endsWith("es") -> Locale("es")
+                lastMode.endsWith("fr") -> Locale.FRENCH
+                lastMode.endsWith("de") -> Locale.GERMAN
+                else -> Locale.ENGLISH
+            }
+            tts?.language = locale
+            ttsPlaying = true
+            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(id: String?) {}
+                override fun onDone(id: String?) { ttsPlaying = false }
+                override fun onError(id: String?) { ttsPlaying = false }
+            })
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ast-tts")
+        }
         statusText = findViewById(R.id.statusText)
         subText = findViewById(R.id.subText)
         subContainer = findViewById(R.id.subContainer)
@@ -73,6 +105,7 @@ class MainActivity : AppCompatActivity() {
         forceScrollOnce = true
         nearBottom = true
         val mode = modes[pairSpinner.selectedItemPosition]
+        lastMode = mode
         val tr = Translator(key, mode,
             onUtterance = { src, tgt, color ->
                 runOnUiThread {
@@ -87,6 +120,7 @@ class MainActivity : AppCompatActivity() {
                     lastSrcView?.text = src
                     lastTgtView?.text = tgt
                     lastTgtView?.setTextColor(color)
+                    if (tgt.isNotEmpty()) lastTgtText = tgt
                     if (forceScrollOnce || nearBottom) {
                         subScroll.post { subScroll.fullScroll(ScrollView.FOCUS_DOWN) }
                         forceScrollOnce = false
@@ -122,6 +156,7 @@ class MainActivity : AppCompatActivity() {
                 while (recording) {
                     val n = rec.read(tmp, 0, tmp.size)
                     if (n <= 0) continue
+                    if (ttsPlaying) continue
                     var p = 0
                     while (p < n) {
                         val take = minOf(2560 - offset, n - p)
@@ -143,5 +178,5 @@ class MainActivity : AppCompatActivity() {
         statusText.text = "已停止"
     }
 
-    override fun onDestroy() { recording = false; translator?.close(); super.onDestroy() }
+    override fun onDestroy() { recording = false; translator?.close(); tts?.stop(); tts?.shutdown(); super.onDestroy() }
 }
