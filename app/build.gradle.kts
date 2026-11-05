@@ -6,16 +6,37 @@ plugins {
 android {
     namespace = "com.ast.android"
     compileSdk = 34
+    // Fixed demo signing key (demo.keystore, standard debug credentials, demo-only,
+    // NOT a Play Store release key). Previous builds used a fresh temporary debug
+    // key on each GitHub runner, so every APK had a different signature and
+    // Android refused to update without uninstalling first. With this fixed key,
+    // all future APKs share one signature and can be installed over the old
+    // version without uninstalling, preserving the saved API key.
+    // Note: the one transition from the old temporary-key builds to this fixed
+    // key still requires one uninstall, after that updates are in-place.
+    signingConfigs {
+        create("demo") {
+            storeFile = file("demo.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
     defaultConfig {
         applicationId = "com.ast.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        // Bump on every release: Android update requires a higher versionCode.
+        versionCode = 4
+        versionName = "1.3"
     }
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("demo")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("demo")
         }
     }
     compileOptions {

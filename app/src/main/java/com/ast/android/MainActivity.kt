@@ -1,12 +1,18 @@
 package com.ast.android
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.view.MotionEvent
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import java.util.Locale
 import androidx.appcompat.app.AppCompatActivity
@@ -46,14 +52,43 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         keyEdit = findViewById(R.id.keyEdit)
+        // Keyboard fix: typing leaves the key box focused and the keyboard open.
+        // On many phones the first tap on Start is then swallowed to dismiss the
+        // keyboard, so the user has to tap Start a second time to connect.
+        // Fix: Done on the keyboard hides it and clears focus, and touching any
+        // button hides the keyboard on ACTION_DOWN (before the click fires),
+        // so the first Start tap actually starts.
+        keyEdit.imeOptions = EditorInfo.IME_ACTION_DONE
+        keyEdit.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) { hideKeyboard(); keyEdit.clearFocus(); true } else false
+        }
+        val hideOnTouch = android.view.View.OnTouchListener { v, ev ->
+            if (ev.action == MotionEvent.ACTION_DOWN) { hideKeyboard(); keyEdit.clearFocus() }
+            false
+        }
         pairSpinner = findViewById(R.id.pairSpinner)
         startBtn = findViewById(R.id.startBtn)
         clearBtn = findViewById(R.id.clearBtn)
         speakBtn = findViewById(R.id.speakBtn)
+        startBtn.setOnTouchListener(hideOnTouch)
+        clearBtn.setOnTouchListener(hideOnTouch)
+        speakBtn.setOnTouchListener(hideOnTouch)
         tts = TextToSpeech(this) { }
+        // TTS listener set once, not per click: a flushed / failed utterance must
+        // always reset ttsPlaying, otherwise the mic stays paused forever and the
+        // app looks frozen, and restarting still sends nothing.
+        tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+            override fun onStart(id: String?) {}
+            override fun onDone(id: String?) { ttsPlaying = false }
+            override fun onError(id: String?) { ttsPlaying = false }
+            override fun onError(id: String?, errorCode: Int) { ttsPlaying = false }
+        })
         speakBtn.setOnClickListener {
             val text = lastTgtText
             if (text.isEmpty()) { statusText.text = "还没有译文，先开始说一句话"; return@setOnClickListener }
+            // If a previous TTS got stuck, tapping Speak again must not leave
+            // ttsPlaying=true forever: stop the old one first.
+            tts?.stop(); ttsPlaying = false
             val locale = when {
                 lastMode == "zh-zhen" -> Locale.ENGLISH
                 lastMode.endsWith("ja") || lastMode.startsWith("ja") -> Locale.JAPANESE
@@ -67,12 +102,16 @@ class MainActivity : AppCompatActivity() {
             }
             tts?.language = locale
             ttsPlaying = true
-            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-                override fun onStart(id: String?) {}
-                override fun onDone(id: String?) { ttsPlaying = false }
-                override fun onError(id: String?) { ttsPlaying = false }
-            })
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ast-tts")
+            val rc = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ast-tts") ?: TextToSpeech.ERROR
+            if (rc == TextToSpeech.ERROR) {
+                ttsPlaying = false
+                statusText.text = "朗读失败：手机语音引擎不可用或该语言未安装，请检查系统语音设置"
+            } else {
+                // Safety timeout: even if onDone/onError never fires (engine bug,
+                // flushed utterance), the mic must resume. Estimate ~5 chars/sec.
+                val timeoutMs = (text.length * 200L + 5000L).coerceAtMost(60000L)
+                Handler(Looper.getMainLooper()).postDelayed({ ttsPlaying = false }, timeoutMs)
+            }
         }
         statusText = findViewById(R.id.statusText)
         subText = findViewById(R.id.subText)
@@ -122,7 +161,13 @@ class MainActivity : AppCompatActivity() {
         clearBtn.setOnClickListener { runOnUiThread { subContainer.removeAllViews(); lastSrcView = null; lastTgtView = null; lastSeq = -1 } }
     }
 
+    private fun hideKeyboard() {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(keyEdit.windowToken, 0)
+    }
+
     private fun start() {
+        hideKeyboard(); keyEdit.clearFocus()
         val key = keyEdit.text.toString().trim()
         if (key.isEmpty()) { statusText.text = "请先填火山同声传译 2.0 的 API Key（存在本机，不会上传到代码仓库）"; return }
         getSharedPreferences("ast", MODE_PRIVATE).edit().putString("api_key", key).apply()
@@ -208,6 +253,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun stop() {
         recording = false
+        // Stop must also stop TTS and reset the mic-pause flag, otherwise a
+        // stuck TTS from the previous run blocks the next run and it looks dead.
+        tts?.stop(); ttsPlaying = false
         translator?.close(); translator = null
         startBtn.text = "开始"
         statusText.text = "已停止"
