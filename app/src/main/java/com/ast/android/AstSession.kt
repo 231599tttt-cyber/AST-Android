@@ -35,7 +35,7 @@ class AstSession(
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 ws = webSocket
                 alive = true
-                send(Proto.encodeRequest(sessionId, 100, src, tgt, null))
+                webSocket.send(ByteString.of(*Proto.encodeRequest(sessionId, 100, src, tgt, null)))
             }
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
                 try {
