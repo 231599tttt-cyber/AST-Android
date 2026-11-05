@@ -230,13 +230,19 @@ class MainActivity : AppCompatActivity() {
             val ad = object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, labelsE) {
                 override fun getView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
                     val tv = super.getView(pos, v, parent) as TextView
-                    tv.setTextColor(0xFFFFFFFF.toInt()); tv.textSize = 16f
+                    tv.setTextColor(0xFFFFFFFF.toInt()); tv.textSize = 18f
+                    tv.setPadding(16, 20, 16, 20)
                     tv.text = labelsE[pos] + "  ▼"
                     return tv
                 }
                 override fun getDropDownView(pos: Int, v: android.view.View?, parent: android.view.ViewGroup): android.view.View {
                     val tv = super.getDropDownView(pos, v, parent) as TextView
-                    tv.setTextColor(0xFFFFFFFF.toInt()); tv.setBackgroundColor(0xFF222222.toInt()); tv.textSize = 16f
+                    tv.setTextColor(0xFFFFFFFF.toInt()); tv.setBackgroundColor(0xFF222222.toInt()); tv.textSize = 18f
+                    // Dropdown items were too small to tap reliably, especially
+                    // the long Xiaomi package name. Make each row tall with
+                    // generous padding so a finger can hit it.
+                    tv.setPadding(24, 28, 24, 28)
+                    tv.minHeight = (56 * resources.displayMetrics.density).toInt()
                     return tv
                 }
             }
@@ -249,6 +255,7 @@ class MainActivity : AppCompatActivity() {
     }
     private fun friendlyEngine(pkg: String): String = when (pkg) {
         "com.google.android.tts" -> "Google 语音识别和语音合成"
+        "com.xiaomi.mibrain.speech" -> "小米语音引擎"
         "com.samsung.SMT" -> "三星文字转语音"
         "com.huawei.hiai" -> "华为语音"
         "com.iflytek.speechcloud" -> "科大讯飞语音"

@@ -12,7 +12,7 @@
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="语言对（点下面这个框切换，切换后自动重连）" android:textColor="#CCCCCC" />
         <Spinner android:id="@+id/pairSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/spinner_bg" android:padding="10dp" />
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="朗读引擎（在 App 内选，不用去系统设置）" android:textColor="#CCCCCC" />
-        <Spinner android:id="@+id/engineSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/spinner_bg" android:padding="10dp" />
+        <Spinner android:id="@+id/engineSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp" android:background="@drawable/spinner_bg" android:padding="12dp" />
         <TextView android:id="@+id/ttsEngineText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="朗读引擎：正在检测…" android:textColor="#AAAAAA" android:textSize="12sp" />
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
