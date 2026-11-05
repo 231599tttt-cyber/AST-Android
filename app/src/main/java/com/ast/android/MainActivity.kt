@@ -202,7 +202,15 @@ class MainActivity : AppCompatActivity() {
     private fun populateEngineSpinner() {
         val intent = android.content.Intent("android.intent.action.TTS_SERVICE")
         val services = try { packageManager.queryIntentServices(intent, 0) } catch (_: Exception) { emptyList() }
-        val pkgs = services.map { it.serviceInfo.packageName }.distinct().sorted()
+        var pkgs = services.map { it.serviceInfo.packageName }.distinct().sorted()
+        // Fallback: if package visibility still filters the query, check the
+        // well-known Google engine package directly.
+        if (pkgs.isEmpty()) {
+            val known = listOf("com.google.android.tts")
+            pkgs = known.filter { pkg ->
+                try { packageManager.getPackageInfo(pkg, 0); true } catch (_: Exception) { false }
+            }
+        }
         if (pkgs.isNotEmpty()) {
             enginePackages = pkgs
             val labelsE = pkgs.map { friendlyEngine(it) }
