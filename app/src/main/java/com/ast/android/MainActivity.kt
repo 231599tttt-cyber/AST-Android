@@ -18,6 +18,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var clearBtn: Button
     private lateinit var statusText: TextView
     private lateinit var subText: TextView
+    private lateinit var subContainer: LinearLayout
+    private lateinit var subScroll: ScrollView
+    private var lastSrcView: TextView? = null
+    private var lastTgtView: TextView? = null
     private var translator: Translator? = null
     private var recording = false
     private var recordThread: Thread? = null
@@ -33,6 +37,8 @@ class MainActivity : AppCompatActivity() {
         clearBtn = findViewById(R.id.clearBtn)
         statusText = findViewById(R.id.statusText)
         subText = findViewById(R.id.subText)
+        subContainer = findViewById(R.id.subContainer)
+        subScroll = findViewById(R.id.subScroll)
         val prefs = getSharedPreferences("ast", MODE_PRIVATE)
         keyEdit.setText(prefs.getString("api_key", ""))
         pairSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
@@ -40,7 +46,7 @@ class MainActivity : AppCompatActivity() {
         startBtn.setOnClickListener {
             if (translator == null) start() else stop()
         }
-        clearBtn.setOnClickListener { runOnUiThread { subText.text = "" } }
+        clearBtn.setOnClickListener { runOnUiThread { subContainer.removeAllViews(); lastSrcView = null; lastTgtView = null } }
     }
 
     private fun start() {
@@ -57,9 +63,18 @@ class MainActivity : AppCompatActivity() {
         val tr = Translator(key, mode,
             onUtterance = { src, tgt, color ->
                 runOnUiThread {
-                    val line = if (tgt.isNotEmpty()) "$src\n$tgt\n\n" else "$src\n\n"
-                    // Replace last block by rebuilding: simplest append-and-trim for v1
-                    subText.append(line)
+                    // Windows-style subtitle block: original small grey on top,
+                    // translation large bold in speaker colour below.
+                    // Incremental updates replace the last block, new sentences append.
+                    if (lastSrcView == null) {
+                        lastSrcView = TextView(this).apply { textSize = 14f; setTextColor(0xFFAAAAAA.toInt()) }
+                        lastTgtView = TextView(this).apply { textSize = 20f; setTypeface(null, android.graphics.Typeface.BOLD) }
+                        subContainer.addView(lastSrcView); subContainer.addView(lastTgtView)
+                    }
+                    lastSrcView?.text = src
+                    lastTgtView?.text = tgt
+                    lastTgtView?.setTextColor(color)
+                    subScroll.post { subScroll.fullScroll(ScrollView.FOCUS_DOWN) }
                 }
             },
             onStatus = { s -> runOnUiThread { statusText.text = s } })
